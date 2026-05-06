@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>內湖國小 108 週年校慶輪播</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #0a0e1a;
+    font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
+    color: #fff;
+    cursor: none;
+  }
+  body.show-cursor { cursor: default; }
+
+  .slide {
+    position: fixed; inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+    pointer-events: none;
+  }
+  .slide.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .slide img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+
+  .slide.donation iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #fff;
+  }
+
+  .iframe-wrap {
+    position: relative;
+    width: 100%; height: 100%;
+  }
+  .iframe-loading {
+    position: absolute; inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0a0e1a;
+    color: rgba(255,255,255,0.5);
+    font-size: 18px;
+    letter-spacing: 4px;
+    transition: opacity 0.5s;
+  }
+  .iframe-loading.hidden { opacity: 0; pointer-events: none; }
+
+  .controls {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    padding: 18px 36px 22px;
+    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    opacity: 0;
+    transition: opacity 0.4s;
+    z-index: 100;
+  }
+  body.show-cursor .controls { opacity: 1; }
+
+  .progress-bar {
+    flex: 1;
+    height: 3px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: #fff;
+    width: 0%;
+    transition: width 0.1s linear;
+  }
+
+  .indicator {
+    font-size: 13px;
+    color: rgba(255,255,255,0.85);
+    letter-spacing: 2px;
+    font-variant-numeric: tabular-nums;
+    min-width: 56px;
+    text-align: right;
+  }
+
+  .status {
+    font-size: 13px;
+    color: rgba(255,255,255,0.85);
+    letter-spacing: 2px;
+    min-width: 70px;
+  }
+
+  .hint {
+    position: fixed;
+    top: 24px; right: 24px;
+    background: rgba(0,0,0,0.75);
+    padding: 14px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 1.9;
+    color: rgba(255,255,255,0.92);
+    z-index: 200;
+    transition: opacity 0.5s;
+    letter-spacing: 0.5px;
+  }
+  .hint.hidden { opacity: 0; pointer-events: none; }
+  .hint kbd {
+    background: rgba(255,255,255,0.18);
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 12px;
+    margin: 0 2px;
+  }
+
+  .pause-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 150;
+  }
+  .pause-overlay.show { opacity: 1; }
+  .pause-overlay div {
+    background: rgba(0,0,0,0.55);
+    padding: 22px 32px;
+    border-radius: 50%;
+    font-size: 32px;
+  }
+</style>
+</head>
+<body>
+
+<!-- 投影片 1：歡迎簽到 -->
+<div class="slide active" data-duration="12000">
+  <img src="images/welcome.png" alt="貴賓簽到處 歡迎蒞臨">
+</div>
+
+<!-- 投影片 2：流程表 -->
+<div class="slide" data-duration="15000">
+  <img src="images/schedule.jpg" alt="校慶運動會流程表">
+</div>
+
+<!-- 投影片 3:入校小叮嚀 -->
+<div class="slide" data-duration="12000">
+  <img src="images/notice.png" alt="入校小叮嚀">
+</div>
+
+<!-- 投影片 4：捐款牆（即時） -->
+<div class="slide donation" data-duration="30000">
+  <div class="iframe-wrap">
+    <div class="iframe-loading">捐款牆載入中</div>
+    <iframe src="https://smallcannon-arch.github.io/donation-wall/"
+            onload="this.previousElementSibling.classList.add('hidden')"></iframe>
+  </div>
+</div>
+
+<div class="controls">
+  <span class="status" id="status">▶ 播放中</span>
+  <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+  <span class="indicator" id="indicator">1 / 4</span>
+</div>
+
+<div class="pause-overlay" id="pauseOverlay"><div>⏸</div></div>
+
+<div class="hint" id="hint">
+  <kbd>空白</kbd> 暫停／播放<br>
+  <kbd>←</kbd> <kbd>→</kbd> 上一頁／下一頁<br>
+  <kbd>F</kbd> 全螢幕　<kbd>Esc</kbd> 退出
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const progress = document.getElementById('progress');
+  const indicator = document.getElementById('indicator');
+  const status = document.getElementById('status');
+  const pauseOverlay = document.getElementById('pauseOverlay');
+  const hint = document.getElementById('hint');
+
+  let current = 0;
+  let paused = false;
+  let startTime = Date.now();
+  let pausedAt = 0;
+
+  function show(idx) {
+    slides[current].classList.remove('active');
+    current = (idx + slides.length) % slides.length;
+    slides[current].classList.add('active');
+    indicator.textContent = `${current + 1} / ${slides.length}`;
+    startTime = Date.now();
+    pausedAt = 0;
+  }
+
+  function next() { show(current + 1); }
+  function prev() { show(current - 1); }
+
+  function tick() {
+    if (!paused) {
+      const elapsed = Date.now() - startTime;
+      const duration = parseInt(slides[current].dataset.duration);
+      const pct = Math.min(100, (elapsed / duration) * 100);
+      progress.style.width = pct + '%';
+      if (elapsed >= duration) next();
+    }
+    requestAnimationFrame(tick);
+  }
+  tick();
+
+  document.addEventListener('keydown', e => {
+    if (e.key === ' ') {
+      e.preventDefault();
+      paused = !paused;
+      if (paused) {
+        pausedAt = Date.now() - startTime;
+        status.textContent = '⏸ 已暫停';
+        pauseOverlay.classList.add('show');
+      } else {
+        startTime = Date.now() - pausedAt;
+        status.textContent = '▶ 播放中';
+        pauseOverlay.classList.remove('show');
+      }
+    } else if (e.key === 'ArrowRight') {
+      next();
+    } else if (e.key === 'ArrowLeft') {
+      prev();
+    } else if (e.key === 'f' || e.key === 'F') {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+  });
+
+  let cursorTimer;
+  document.addEventListener('mousemove', () => {
+    document.body.classList.add('show-cursor');
+    clearTimeout(cursorTimer);
+    cursorTimer = setTimeout(() => {
+      document.body.classList.remove('show-cursor');
+    }, 2500);
+  });
+
+  setTimeout(() => hint.classList.add('hidden'), 5000);
+</script>
+</body>
+</html>
